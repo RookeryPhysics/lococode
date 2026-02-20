@@ -1,6 +1,25 @@
-import requests
-import json
 import sys
+import subprocess
+
+def install_package(package):
+    """Installs a python package via pip."""
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except:
+        return False
+
+try:
+    import requests
+except ImportError:
+    print("\033[90mInstalling missing dependency 'requests'...\033[0m")
+    if install_package("requests"):
+        import requests
+    else:
+        print("\033[31mError: Failed to install 'requests' automatically. Please run 'pip install requests' manually.\033[0m")
+        sys.exit(1)
+
+import json
 import argparse
 import os
 import math
@@ -13,16 +32,6 @@ try:
     import msvcrt
 except ImportError:
     msvcrt = None
-
-import subprocess
-
-def install_package(package):
-    """Installs a python package via pip."""
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return True
-    except:
-        return False
 
 try:
     from prompt_toolkit import prompt
