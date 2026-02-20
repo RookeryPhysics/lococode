@@ -1,7 +1,7 @@
 # LOCOCODE
 Agentic tool use platform and coding CLI. Designed for local LLMs.
 
-`LOCOCODE` is a powerful, lightweight command-line interface designed for rapid, AI-driven development. It integrates directly with **LM Studio**'s local API to process natural language instructions and apply modifications to your project files.
+LOCOCODE is a new, lightweight command-line interface designed for rapid, AI-driven development. It integrates directly with **LM Studio**'s local API to process natural language instructions and apply modifications to your project files.
 
 ## Features
 
