@@ -307,7 +307,7 @@ def classify_intent(model_id, instruction, registry):
             return None
     return None
 
-def apply_edit(target_file, instruction, model_id, registry, context, verbose=False):
+def apply_edit(target_file, instruction, model_id, registry, context, verbose=False, preplanned_intent=None):
     """Reads the target file, sends instruction to model using SEARCH/REPLACE blocks, and updates the file."""
     try:
         with open(target_file, 'r', encoding='utf-8') as f:
@@ -318,8 +318,14 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
 
     tool_prompt = registry.get_system_prompt_segment()
     
-    print(f"\033[90mPlanning...\033[0m", end="", flush=True)
-    intent_info = classify_intent('google/gemma-3n-e4b', instruction, registry)
+    if preplanned_intent:
+        intent_info = preplanned_intent
+        is_preplanned = True
+    else:
+        print(f"\033[90mPlanning...\033[0m", end="", flush=True)
+        intent_info = classify_intent('google/gemma-3n-e4b', instruction, registry)
+        is_preplanned = False
+        
     if intent_info is None:
         return False
     
@@ -330,7 +336,11 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
         reasoning = intent_info.get("reasoning", "")
         arg = intent_info.get("args")
         
-        print(f"\r\033[90mPlan: {intent}", end="")
+        if is_preplanned:
+            print(f"\033[90mPlan: {intent}", end="")
+        else:
+            print(f"\r\033[90mPlan: {intent}", end="")
+            
         if tags_needed:
             print(f" | Tags: {', '.join(tags_needed)}", end="")
         print(f"\033[0m")

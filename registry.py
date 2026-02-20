@@ -41,10 +41,10 @@ class ToolRegistry:
         
         # Define categories and map tools to them
         categories = {
-            "File Operations": ["file_switch"],
+            "File Operations": ["file_switch", "create_file", "delete_file"],
             "Search & Research": ["open_url"],
-            "Execution": [],
-            "System": ["model", "loop", "clear_console"]
+            "Execution": ["write_run"],
+            "System": ["model", "loop", "sequence", "clear_console"]
         }
         
         # Reverse mapping for quick lookup
