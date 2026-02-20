@@ -6,7 +6,7 @@ class ClearConsoleTool(BaseTool):
         super().__init__()
         self.name = "clear_console"
         self.description = "Clear the console and reprint the banner. Usage: /clear"
-        self.pattern = r"/clear"
+        self.pattern = r"^/clear$"
         self.is_slash = True
         self.intent = "clear_console"
 

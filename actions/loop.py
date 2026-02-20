@@ -6,11 +6,11 @@ class LoopTool(BaseTool):
 
     def __init__(self):
         super().__init__()
-        self.name = "loop_edit"
+        self.name = "loop"
         self.description = "Iterate on code multiple times (default 3). Usage: /loop [count] <specs>"
-        self.pattern = r"/loop\s+(.+)"
+        self.pattern = r"^/loop\s+(.+)$"
         self.is_slash = True
-        self.intent = "loop_edit"
+        self.intent = "loop"
         self.arg_description = "iteration count (optional) and specifications"
 
     def execute(self, match, context):

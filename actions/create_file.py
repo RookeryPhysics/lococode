@@ -11,7 +11,7 @@ class CreateFileTool(BaseTool):
         self.description = "Create a new file. Usage: /make <filename>"
         self.pattern = r"/make\s+(.+)"
         self.is_slash = True
-        self.intent = "file_create"
+        self.intent = "create_file"
         self.arg_description = "filename to create"
 
     def execute(self, match, context):
@@ -24,11 +24,6 @@ class CreateFileTool(BaseTool):
             print(f"\033[33m{filename} already exists. Switching to it.\033[0m")
             context["target_file"] = filename
             return True
-
-        # Create parent directories if needed
-        parent = os.path.dirname(filename)
-        if parent:
-            os.makedirs(parent, exist_ok=True)
 
         try:
             with open(filename, "w", encoding="utf-8") as f:
@@ -46,7 +41,7 @@ class CreateFileTag(BaseTool):
     def __init__(self):
         super().__init__()
         self.name = "create_file"
-        self.description = "Create a new file at the given path"
+        self.description = "Create a new file of the given filename."
         self.pattern = r"<tool:create_file>(.*?)</tool:create_file>"
         self.is_slash = False
         self.intent = None
@@ -60,10 +55,6 @@ class CreateFileTag(BaseTool):
         if os.path.exists(filename):
             print(f"\033[33m[create_file] {filename} already exists.\033[0m")
             return
-
-        parent = os.path.dirname(filename)
-        if parent:
-            os.makedirs(parent, exist_ok=True)
 
         try:
             with open(filename, "w", encoding="utf-8") as f:

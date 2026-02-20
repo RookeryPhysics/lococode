@@ -6,7 +6,7 @@ class FileSwitchTool(BaseTool):
         super().__init__()
         self.name = "file_switch"
         self.description = "Switch to editing a different file. Usage: /file <filename>"
-        self.pattern = r"/file\s+(.+)"
+        self.pattern = r"^/file\s+(.+)$"
         self.is_slash = True
         self.intent = "file_switch"
         self.arg_description = "filename to switch to"

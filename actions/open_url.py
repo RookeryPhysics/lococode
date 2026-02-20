@@ -1,3 +1,4 @@
+import re
 import webbrowser
 from lococode.actions.base import BaseTool
 
@@ -5,17 +6,22 @@ class OpenUrlTool(BaseTool):
     def __init__(self):
         super().__init__()
         self.name = "open_url"
-        self.description = "Opens a URL in the default web browser. Usage: /url <link>"
-        self.pattern = r"/url\s+(.+)"
+        self.description = "Open a given URL in the default web browser. Usage: /url <url>"
+        self.pattern = r"^/url\s+(.+)$"
         self.is_slash = True
         self.intent = "open_url"
-        self.arg_description = "URL or website address"
+        self.arg_description = "URL to open"
 
     def execute(self, match, context):
-        url = match.group(1).strip()
-        # Ensure the URL has a scheme so the browser opens it as a web page
-        if not url.startswith(("http://", "https://")):
-            url = "https://" + url
-        print(f"\033[92mOpening: {url}\033[0m")
+        url = match.group(1)
+        if not url:
+            print("\033[31mPlease provide a URL. Usage: /url <url>\033[0m")
+            return True
+            
+        url = url.strip()
+        if not url.startswith(('http://', 'https://', 'file://')):
+            url = 'https://' + url
+            
+        print(f"\033[36mOpening URL: {url}\033[0m")
         webbrowser.open(url)
         return True

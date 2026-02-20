@@ -9,7 +9,7 @@ class ToolRegistry:
         self.load_actions()
 
     def load_actions(self):
-        actions_dir = os.path.join(os.path.dirname(__file__), 'actions')
+        actions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'actions')
         if not os.path.exists(actions_dir):
             return
             
@@ -38,29 +38,80 @@ class ToolRegistry:
 
     def get_help_text(self):
         slash_tools = [t for t in self.tools if t.is_slash]
-        help_text = "\nAvailable Commands:\n"
-        for tool in slash_tools:
-            # Clean up the regex pattern for display
-            clean_name = tool.pattern
-            clean_name = re.sub(r'[\^\$]', '', clean_name) # Remove start/end anchors
-            clean_name = re.sub(r'\\s\+\(\.\+\)', ' <arg>', clean_name)
-            clean_name = re.sub(r'\\s\*\(\.\*\)', ' [arg]', clean_name)
-            # Hide technical-looking optional groups
-            clean_name = re.sub(r'\(\?: <arg>\)\?', '', clean_name)
-            clean_name = clean_name.strip()
-            
-            help_text += f"  {clean_name:<18} - {tool.description}\n"
         
-        help_text += f"  {'/help':<18} - Show this help message.\n"
-        help_text += f"  {'/exit / /quit':<18} - Exit the CLI.\n"
+        # Define categories and map tools to them
+        categories = {
+            "File Operations": ["file_switch"],
+            "Search & Research": ["open_url"],
+            "Execution": [],
+            "System": ["model", "loop", "clear_console"]
+        }
+        
+        # Reverse mapping for quick lookup
+        tool_to_cat = {}
+        for cat, tool_names in categories.items():
+            for name in tool_names:
+                tool_to_cat[name] = cat
+
+        help_text = "\n\033[1;35m--- LOCOCODE COMMANDS ---\033[0m\n"
+        
+        # Group tools by category
+        grouped = {}
+        for tool in slash_tools:
+            cat = tool_to_cat.get(tool.name, "Other")
+            if cat not in grouped:
+                grouped[cat] = []
+            grouped[cat].append(tool)
+            
+        # Add hardcoded system commands to the System category
+        system_cat = "System"
+        
+        for cat in sorted(grouped.keys()):
+            if cat == "Other" and not grouped[cat]: continue
+            
+            help_text += f"\n\033[1;34m{cat}:\033[0m\n"
+            for tool in sorted(grouped[cat], key=lambda x: x.pattern):
+                # Clean up the regex pattern for display
+                clean_name = tool.pattern
+                clean_name = re.sub(r'[\^\$]', '', clean_name) # Remove start/end anchors
+                clean_name = re.sub(r'\\s\+\(\.\+\)', ' <arg>', clean_name)
+                clean_name = re.sub(r'\\s\*\(\.\*\)', ' [arg]', clean_name)
+                clean_name = re.sub(r'\\s\+', ' ', clean_name)
+                clean_name = re.sub(r'\\b', '', clean_name)
+                # Hide technical-looking optional groups
+                clean_name = re.sub(r'\(\?:\s+<arg>\)\?', '', clean_name)
+                # Handle special case for /model which has a complex regex
+                if tool.name == "model":
+                    clean_name = "/model [mode]"
+                
+                clean_name = clean_name.strip()
+                help_text += f"  \033[92m{clean_name:<18}\033[0m - {tool.description}\n"
+            
+            # Add hardcoded commands to the System section
+            if cat == "System":
+                help_text += f"  \033[92m{'/help':<18}\033[0m - Show this help message.\n"
+                help_text += f"  \033[92m{'/exit':<18}\033[0m - Close models/server and exit.\n"
+                help_text += f"  \033[92m{'/quit':<18}\033[0m - Alias for /exit.\n"
+        
         return help_text
 
     def run_slash_command(self, user_input, context):
+        cleaned_input = user_input.strip()
+        if not cleaned_input.startswith('/'):
+            return False
+            
+        # Get the command part (e.g., /undo from "/undo file.txt")
+        cmd_part = cleaned_input.split()[0].lower()
+        
         for tool in self.tools:
             if tool.is_slash:
-                match = re.match(tool.pattern, user_input.strip(), re.IGNORECASE)
-                if match:
-                    return tool.execute(match, context)
+                # Check if the pattern is a simple slash command or a regex
+                pattern = tool.pattern
+                if pattern.startswith('/') or pattern.startswith('^/'):
+                    # Match exact command or regex
+                    match = re.match(pattern, cleaned_input, re.IGNORECASE)
+                    if match:
+                        return tool.execute(match, context)
         return False
 
     def find_tool_by_intent(self, intent):

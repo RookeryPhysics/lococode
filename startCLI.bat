@@ -1,3 +1,3 @@
 @echo off
-python C:\Users\miked\lococode\cli.py
+python c:\Users\miked\OpenSponge\lococode\cli.py
 pause

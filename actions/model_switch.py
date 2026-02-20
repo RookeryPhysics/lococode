@@ -8,6 +8,8 @@ class ModelSwitchTool(BaseTool):
         self.description = "Switch between 'fast' and 'thinking' models, or show current model. Usage: /model <fast|thinking>"
         self.pattern = r"^/model(?:\s+(.+))?$"
         self.is_slash = True
+        self.intent = "model_switch"
+        self.arg_description = "model mode (fast/thinking)"
 
     def execute(self, match, context):
         mode = match.group(1)

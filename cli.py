@@ -1,5 +1,6 @@
 import sys
 import subprocess
+import shutil
 
 def install_package(package):
     """Installs a python package via pip."""
@@ -88,6 +89,9 @@ def stream_response(model_id, messages, silent=False, color="\033[92m"):
             wave_pos = 0.0
             wave_dir = 1
             last_time = time.time()
+            content_len = -1
+            display_text = ""
+            printed_lines = 0
         state = AnimState()
         
         if not silent:
@@ -95,51 +99,51 @@ def stream_response(model_id, messages, silent=False, color="\033[92m"):
 
         def animation_thread():
             if silent: return
-            start_time = time.time()
             
             while is_generating[0]:
-                text = "".join(content_list)
-                
-                try:
-                    term_width, term_height = os.get_terminal_size()
-                except:
-                    term_width, term_height = 80, 24
-                
-                t_w = max(40, term_width - 2)
-                max_lines = max(5, term_height - 5)
-                
-                full_str = "Assistant: " + text
-                
-                lines = []
-                for paragraph in full_str.split('\n'):
-                    if not paragraph:
-                        lines.append("")
-                    else:
-                        for i in range(0, len(paragraph), t_w):
-                            lines.append(paragraph[i:i+t_w])
-                
-                if len(lines) > max_lines:
-                    lines = lines[-max_lines:]
-                    if len(lines[0]) >= 5:
-                        lines[0] = "(...)" + lines[0][5:]
-                    else:
-                        lines[0] = "(...)"
-                
-                display_text = '\n'.join(lines)
-                printed_lines = len(lines) - 1 if lines else 0
-                
+                if len(content_list) != state.content_len:
+                    state.content_len = len(content_list)
+                    text = "".join(content_list)
+                    
+                    try:
+                        term_width, term_height = os.get_terminal_size()
+                    except:
+                        term_width, term_height = 80, 24
+                    
+                    t_w = max(40, term_width - 2)
+                    max_lines = max(5, term_height - 5)
+                    
+                    full_str = "Assistant: " + text
+                    
+                    lines = []
+                    for paragraph in full_str.split('\n'):
+                        if not paragraph:
+                            lines.append("")
+                        else:
+                            for i in range(0, len(paragraph), t_w):
+                                lines.append(paragraph[i:i+t_w])
+                    
+                    if len(lines) > max_lines:
+                        lines = lines[-max_lines:]
+                        if len(lines[0]) >= 5:
+                            lines[0] = "(...)" + lines[0][5:]
+                        else:
+                            lines[0] = "(...)"
+                    
+                    state.display_text = '\n'.join(lines)
+                    state.printed_lines = len(lines) - 1 if lines else 0
+
+                display_text = state.display_text
+                printed_lines = state.printed_lines
                 current_time = time.time()
                 dt = current_time - state.last_time
                 state.last_time = current_time
                 wave_speed = 60.0 # Characters per second
                 
-                state.wave_pos += state.wave_dir * wave_speed * dt
-                
-                colored_text = ""
-                # wave position moves over the display text and bounces at the ends
                 total_len = len(display_text)
                 if total_len > 0:
-                    trip_len = total_len + 15  # Go slightly past the text bounds before bouncing
+                    trip_len = total_len + 15
+                    state.wave_pos += state.wave_dir * wave_speed * dt
                     
                     if state.wave_pos >= trip_len:
                         state.wave_pos = trip_len
@@ -147,28 +151,40 @@ def stream_response(model_id, messages, silent=False, color="\033[92m"):
                     elif state.wave_pos <= 0:
                         state.wave_pos = 0
                         state.wave_dir = 1
-                        
                     wave_pos_int = int(state.wave_pos)
                 else:
                     wave_pos_int = 0
                 
+                # Optimized coloring: Only color the area near the wave
+                colored_parts = []
+                last_color = None
+                
+                # Define color zones
+                # 0: yellow (dist < 2), 1: dark yellow (dist < 5), 2: brackets, 3: default
                 for i, char in enumerate(display_text):
                     if char == '\n':
-                        colored_text += char
+                        colored_parts.append(char)
+                        last_color = None
                         continue
                     
                     dist = abs(i - wave_pos_int)
+                    current_color = None
+                    
                     if dist < 2:
-                        colored_text += f"\033[93m{char}" # yellow
+                        current_color = "\033[93m"
                     elif dist < 5:
-                        colored_text += f"\033[33m{char}" # dark yellow
+                        current_color = "\033[33m"
+                    elif char in "()[]{}<>":
+                        current_color = "\033[36m"
                     else:
-                        if char in "()[]{}<>":
-                            colored_text += f"\033[36m{char}"
-                        else:
-                            colored_text += f"{color}{char}"
+                        current_color = color
+                    
+                    if current_color != last_color:
+                        colored_parts.append(current_color)
+                        last_color = current_color
+                    colored_parts.append(char)
                 
-                colored_text += "\033[0m"
+                colored_text = "".join(colored_parts) + "\033[0m"
                 
                 if state.last_printed_lines > 0:
                     sys.stdout.write(f"\033[{state.last_printed_lines}A\r")
@@ -179,7 +195,7 @@ def stream_response(model_id, messages, silent=False, color="\033[92m"):
                 sys.stdout.flush()
                 
                 state.last_printed_lines = printed_lines
-                time.sleep(0.03)
+                time.sleep(0.05) # Increased sleep slightly for CPU efficiency
 
         anim_t = None
         if not silent:
@@ -233,23 +249,42 @@ def stream_response(model_id, messages, silent=False, color="\033[92m"):
         return None
 
 def classify_intent(model_id, instruction, registry):
-    """Planning step: classifies the user's intent and determines which tags to use."""
+    """Planning step: classifies the user's intent, determines tags, and extracts arguments in one pass."""
     tag_tools = [t for t in registry.tools if not t.is_slash]
     tag_list = ", ".join([f"<tool:{t.name}> ({t.description})" for t in tag_tools])
 
-    # Build intent list dynamically from registered tools + defaults
-    tool_intents = [t.intent for t in registry.tools if t.intent]
-    all_intents = sorted(set(tool_intents + ["code_edit", "general_question"]))
-    intent_list_str = ", ".join(all_intents)
+    intent_descriptions = {
+        "code_edit": "modify or write code in the current open file",
+        "general_question": "answer a question without modifying any files or taking any other actions"
+    }
+
+    for t in registry.tools:
+        if t.is_slash and t.intent:
+            arg_desc = f" (requires arg: {t.arg_description})" if t.arg_description else ""
+            # Some tool descriptions include "/command" instructions; strip or let it pass, the LLM will understand
+            intent_descriptions[t.intent] = f"{t.description}{arg_desc}"
+
+    intent_list_str = "\n".join([f"  - \"{intent}\": {desc}" for intent, desc in intent_descriptions.items()])
+    valid_intents_str = ", ".join([f'"{intent}"' for intent in intent_descriptions.keys()])
 
     classify_prompt = (
-        "You are a planning assistant. Analyze the user's instruction and determine:\n"
-        f"1. intent: one of [{intent_list_str}]\n"
-        "2. tags_needed: a list of tool tag names the model should use in its output (can be empty)\n"
-        "3. reasoning: a one-sentence explanation of why\n\n"
-        f"Available tool tags: {tag_list}\n\n"
-        "Respond with ONLY a JSON object, no markdown, no extra text. Example:\n"
-        '{"intent": "code_edit", "tags_needed": [], "reasoning": "User wants to modify HTML code."}'
+        "You are a planning assistant. Analyze the user's instruction and determine the correct action to take.\n\n"
+        "Available actions (intents):\n"
+        f"{intent_list_str}\n\n"
+        "Rules:\n"
+        f"1. You MUST choose exactly one intent from this list: [{valid_intents_str}]\n"
+        "2. Determine 'args': the primary argument required by the chosen intent (e.g. filename, search query, mode), or null if none required.\n"
+        "3. Determine 'tags_needed': a list of tool tag names the model should use to fulfill the instruction.\n"
+        "4. Provide 'reasoning': a brief one-sentence explanation for your choice.\n\n"
+        f"Available tool tags for 'tags_needed': {tag_list}\n\n"
+        "Respond with ONLY a JSON object. Examples:\n"
+        '{"intent": "code_edit", "args": null, "tags_needed": [], "reasoning": "User wants to modify the current file."}\n'
+        '{"intent": "create_file", "args": "app.py", "tags_needed": ["create_file", "edit_file"], "reasoning": "User wants a new app.py."}\n'
+        '{"intent": "file_switch", "args": "main.py", "tags_needed": [], "reasoning": "User wants to start editing main.py instead."}\n'
+        '{"intent": "delete_file", "args": "filename.py", "tags_needed": [], "reasoning": "User wants to delete the file named filename.py."}\n'
+        '{"intent": "general_question", "args": null, "tags_needed": [], "reasoning": "User is asking a question that does not require taking action."}\n'
+        '{"intent": "loop", "args": "3 make this code more robust", "tags_needed": [], "reasoning": "User wants to loop 3 times over the code."}\n'
+        '{"intent": "model_switch", "args": "thinking", "tags_needed": [], "reasoning": "User wants to switch to the thinking model."}'
     )
 
     messages = [
@@ -273,7 +308,7 @@ def classify_intent(model_id, instruction, registry):
     return None
 
 def apply_edit(target_file, instruction, model_id, registry, context, verbose=False):
-    """Reads the target file, sends the instruction and context to the model, and updates the file."""
+    """Reads the target file, sends instruction to model using SEARCH/REPLACE blocks, and updates the file."""
     try:
         with open(target_file, 'r', encoding='utf-8') as f:
             current_content = f.read()
@@ -283,7 +318,6 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
 
     tool_prompt = registry.get_system_prompt_segment()
     
-    # ── Planning Step: classify intent and determine needed tags ──
     print(f"\033[90mPlanning...\033[0m", end="", flush=True)
     intent_info = classify_intent('google/gemma-3n-e4b', instruction, registry)
     if intent_info is None:
@@ -294,92 +328,116 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
         intent = intent_info.get("intent", "code_edit")
         tags_needed = intent_info.get("tags_needed", [])
         reasoning = intent_info.get("reasoning", "")
+        arg = intent_info.get("args")
         
         print(f"\r\033[90mPlan: {intent}", end="")
         if tags_needed:
             print(f" | Tags: {', '.join(tags_needed)}", end="")
         print(f"\033[0m")
 
-        # ── Handle tool intents directly ──
+        # ── Handle tool intents directly (Unified Planner) ──
         matched_tool = registry.find_tool_by_intent(intent)
         if matched_tool:
             if matched_tool.arg_description:
-                # Tool needs an argument — ask LLM to extract it
-                extract_messages = [
-                    {"role": "system", "content": f"Extract the {matched_tool.arg_description} from the user's instruction. Respond with ONLY the {matched_tool.arg_description}, nothing else."},
-                    {"role": "user", "content": instruction}
-                ]
-                arg = stream_response(model_id, extract_messages, silent=True)
-                if arg:
-                    arg = re.sub(r"<think>.*?</think>", "", arg, flags=re.DOTALL).strip().strip('"\'')
                 if not arg:
                     if matched_tool.name == "create_file":
                         print(f"\033[33mNo filename specified, falling back to code editing.\033[0m")
                         matched_tool = None
                         intent = "code_edit"
                     else:
-                        print(f"\033[31mCould not extract {matched_tool.arg_description} from your instruction.\033[0m")
+                        print(f"\033[31mCould not extract {matched_tool.arg_description} from instruction.\033[0m")
                         return False
                 
                 if matched_tool:
-                    # Build a synthetic match using the tool's pattern
-                    fake_input = re.sub(r'\\s\+\(\.\+\)', ' ', matched_tool.pattern) + ' ' + arg
-                    fake_input = fake_input.strip()
-                    fake_match = re.match(matched_tool.pattern, fake_input, re.IGNORECASE)
-                    if fake_match:
-                        matched_tool.execute(fake_match, context)
-                        return True
+                    cmd_match = re.search(r'(/[a-z\d_]+)', matched_tool.pattern)
+                    if cmd_match:
+                        base_cmd = cmd_match.group(1)
+                        fake_input = f"{base_cmd} {arg}" if arg else base_cmd
+                        fake_match = re.search(matched_tool.pattern, fake_input, re.IGNORECASE)
+                        if fake_match:
+                            matched_tool.execute(fake_match, context)
+                            return True
                     print(f"\033[31mFailed to build command for {matched_tool.name}.\033[0m")
                     return False
             else:
-                # Tool takes no arguments — execute directly
                 fake_match = re.match(matched_tool.pattern, matched_tool.pattern, re.IGNORECASE)
                 matched_tool.execute(fake_match, context)
                 return True
 
-        # Build the intent context to inject into the system prompt
         intent_context = f"\n\nPLAN: Intent={intent}."
         if tags_needed:
-            intent_context += f" You MUST use these tool tags in your output: {', '.join(['<tool:' + t + '>' for t in tags_needed])}."
+            intent_context += f" You MUST use these tool tags: {', '.join(['<tool:' + t + '>' for t in tags_needed])}."
         if reasoning:
             intent_context += f" ({reasoning})"
+                
     else:
         print(f"\r\033[90mPlan: default (code_edit)\033[0m")
 
-    # Inject web search results if available
     research_section = ""
     search_results = context.get("search_results", [])
     if search_results:
         research_section = "\n\nRESEARCH:\n" + "\n".join(search_results)
-        context["search_results"] = []  # Clear after use
+        context["search_results"] = []
+
+    # SEARCH/REPLACE System Prompt
+    diff_system = (
+        f"You are an expert developer updating {target_file}. "
+        "To make changes, use SEARCH/REPLACE blocks. This is faster and uses fewer tokens.\n\n"
+        "Format:\n"
+        "<<<< SEARCH\n[exact code to find]\n====\n[replacement code]\n>>>> REPLACE\n\n"
+        "Rules:\n"
+        "1. SEARCH block must match the existing file content EXACTLY (including whitespace).\n"
+        "2. Only provide blocks for parts you are changing.\n"
+        "3. Do not output the whole file unless you are replacing it entirely.\n"
+        "4. No conversational filler. No markdown unless requested."
+    )
 
     prompt = f"INST:\n{instruction}{research_section}\n\nCTX:\n{current_content}"
     
     messages = [
-        {"role": "system", "content": f"Update {target_file}. Output ONLY code. No talk. No markdown. {os.path.abspath(target_file)} {tool_prompt}{intent_context}"},
+        {"role": "system", "content": f"{diff_system} {tool_prompt}{intent_context}"},
         {"role": "user", "content": prompt}
     ]
 
-    if verbose: print(f"\033[92m[PROMPT]: {instruction[:100]}...\033[0m")
     print(f"\033[92mProcessing...\033[0m")
-    
     updated_content = stream_response(model_id, messages, color="\033[92m")
 
     if updated_content:
-        # Cleanup
         updated_content = re.sub(r"<think>.*?</think>", "", updated_content, flags=re.DOTALL)
-        
-        # Process Tool Tags
         updated_content = registry.process_model_output(updated_content, context)
 
-        # Final cleanup of markdown
-        updated_content = re.sub(r"```[a-z]*\n?", "", updated_content).replace("```", "").strip()
+        # Apply SEARCH/REPLACE blocks
+        blocks = re.findall(r"<<<< SEARCH\n(.*?)\n====\n(.*?)\n>>>> REPLACE", updated_content, re.DOTALL)
         
-        if updated_content:
-            with open(context['target_file'], 'w', encoding='utf-8') as f:
-                f.write(updated_content)
-            print(f"\033[32mUpdated {context['target_file']}.\033[0m")
-            return True
+        if blocks:
+            new_content = current_content
+            applied_count = 0
+            for search, replace in blocks:
+                if search in new_content:
+                    new_content = new_content.replace(search, replace, 1)
+                    applied_count += 1
+                else:
+                    print(f"\033[31mError: Search block not found in {target_file}. Check indentation/content.\033[0m")
+            
+            if applied_count > 0:
+                with open(context['target_file'], 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                print(f"\033[32mApplied {applied_count} change(s) to {context['target_file']}.\033[0m")
+                return True
+        else:
+            # Fallback if no blocks found but model output content (maybe for general questions or tiny files)
+            cleaned = re.sub(r"```[a-z]*\n?", "", updated_content).replace("```", "").strip()
+            if cleaned and intent == "code_edit":
+                # If model ignored blocks but wrote code, we can overwrite if requested or just warn
+                # For safety/pro-engineer status, let's allow overwrite if it looks like a full file and blocks were missing
+                if len(cleaned) > 10:
+                    with open(context['target_file'], 'w', encoding='utf-8') as f:
+                        f.write(cleaned)
+                    print(f"\033[32mUpdated {context['target_file']} (full file fallback).\033[0m")
+                    return True
+            elif intent == "general_question":
+                return True # Already printed by stream_response
+
     return False
 
 def clear_console():
@@ -396,11 +454,9 @@ def get_cube_frame(rot_x, rot_y, width, height):
     grid = [[' ' for _ in range(width)] for _ in range(height)]
 
     def is_inside(x, y, p1, p2, p3):
-        def side(px, py, v1, v2):
-            return (px - v2[0]) * (v1[1] - v2[1]) - (v1[0] - v2[0]) * (py - v2[1])
-        d1 = side(x, y, p1, p2)
-        d2 = side(x, y, p2, p3)
-        d3 = side(x, y, p3, p1)
+        d1 = (x - p2[0]) * (p1[1] - p2[1]) - (p1[0] - p2[0]) * (y - p2[1])
+        d2 = (x - p3[0]) * (p2[1] - p3[1]) - (p2[0] - p3[0]) * (y - p3[1])
+        d3 = (x - p1[0]) * (p3[1] - p1[1]) - (p3[0] - p1[0]) * (y - p1[1])
         return not (((d1 < 0) or (d2 < 0) or (d3 < 0)) and ((d1 > 0) or (d2 > 0) or (d3 > 0)))
     
     def draw_cube(verts, color_code):
@@ -451,15 +507,18 @@ def get_cube_frame(rot_x, rot_y, width, height):
 
     # Big Cube
     big_verts = []
+    cos_rx, sin_rx = math.cos(rot_x), math.sin(rot_x)
+    cos_ry, sin_ry = math.cos(rot_y), math.sin(rot_y)
+    
     for v in vertices:
         x, y, z = v
         # Rotate X
-        y2 = y * math.cos(rot_x) - z * math.sin(rot_x)
-        z2 = y * math.sin(rot_x) + z * math.cos(rot_x)
+        y2 = y * cos_rx - z * sin_rx
+        z2 = y * sin_rx + z * cos_rx
         y, z = y2, z2
         # Rotate Y
-        x2 = x * math.cos(rot_y) - z * math.sin(rot_y)
-        z2 = x * math.sin(rot_y) + z * math.cos(rot_y)
+        x2 = x * cos_ry - z * sin_ry
+        z2 = x * sin_ry + z * cos_ry
         x, z = x2, z2
         big_verts.append((x, y, z))
         
@@ -480,16 +539,19 @@ def get_cube_frame(rot_x, rot_y, width, height):
         orbit_z = math.sin(orbit_angle) * orbit_radius
         orbit_y = math.sin(rot_x * 2 + phase) * 0.8
         
+        s_rot_x = (rot_y + offset) * 2
+        s_rot_y = (rot_x + phase) * 3
+        cos_srx, sin_srx = math.cos(s_rot_x), math.sin(s_rot_x)
+        cos_sry, sin_sry = math.cos(s_rot_y), math.sin(s_rot_y)
+
         for v in vertices:
             x, y, z = v[0]*0.2, v[1]*0.2, v[2]*0.2
             # Spin
-            s_rot_x = (rot_y + offset) * 2
-            s_rot_y = (rot_x + phase) * 3
-            y2 = y * math.cos(s_rot_x) - z * math.sin(s_rot_x)
-            z2 = y * math.sin(s_rot_x) + z * math.cos(s_rot_x)
+            y2 = y * cos_srx - z * sin_srx
+            z2 = y * sin_srx + z * cos_srx
             y, z = y2, z2
-            x2 = x * math.cos(s_rot_y) - z * math.sin(s_rot_y)
-            z2 = x * math.sin(s_rot_y) + z * math.cos(s_rot_y)
+            x2 = x * cos_sry - z * sin_sry
+            z2 = x * sin_sry + z * cos_sry
             x, z = x2, z2
             # Translate
             x += orbit_x
@@ -638,6 +700,8 @@ def main():
     
     def print_status(ctx):
         print(f"\n\033[1;34mEditing Mode: {ctx['target_file']} | Model: {ctx['model_id']}\033[0m")
+        slash_cmds = [t.pattern for t in ctx['registry'].tools if t.is_slash]
+        # print(f"\033[90mCommands: {', '.join(slash_cmds)}\033[0m")
 
     context = {
         'target_file': 'index.html',

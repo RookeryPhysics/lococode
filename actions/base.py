@@ -7,7 +7,7 @@ class BaseTool:
         self.description = ""
         self.pattern = "" # Regex pattern to match
         self.is_slash = False # True for /commands, False for <tags>
-        self.intent = None  # Planner intent this tool handles (e.g. "web_search", "browser_open")
+        self.intent = None  # Planner intent this tool handles (e.g. "create_file", "file_switch")
         self.arg_description = None  # What argument the LLM should extract (e.g. "search query", "filename"), None if no args needed
 
     def execute(self, match, context):

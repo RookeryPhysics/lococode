@@ -43,11 +43,8 @@ LOCOCODE is a new, lightweight command-line interface designed for rapid, AI-dri
 | `/file <filename>` | Switch editing focus to a different file. |
 | `/loop [n] <specs>` | Run `n` iterations (default 3) to refine code based on specifications. |
 | `/search <query>` | Search the web and select content to add to the AI's context. |
-| `/run <script.py>` | Execute a Python script and see the output in the console. |
 | `/make <filename>` | Create a new file and switch focus to it. |
 | `/del <filename>` | Delete a file from the current directory. |
-| `/open` | Open the current file in your default web browser. |
-| `/url <link>` | Open a specific URL in the browser. |
 | `/clear` | Clear the terminal and reset the interface. |
 | `/help` | List all available commands. |
 | `/exit` | Close the CLI. |
