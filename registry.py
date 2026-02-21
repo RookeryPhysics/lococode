@@ -33,7 +33,7 @@ class ToolRegistry:
         
         prompt = "\nAvailable Tools (Use these tags in your output to trigger actions):\n"
         for tool in tag_tools:
-            prompt += f"  <tool:{tool.name}>args</tool:{tool.name}> - {tool.description}\n"
+            prompt += f"  <tool:{tool.name}>input</tool:{tool.name}> - {tool.description}\n"
         return prompt
 
     def get_help_text(self):
@@ -41,8 +41,8 @@ class ToolRegistry:
         
         # Define categories and map tools to them
         categories = {
-            "File Operations": ["file_switch", "create_file", "delete_file", "backup", "ls", "read"],
-            "Search & Research": ["open_url", "open_current_html"],
+            "File Operations": ["edit", "file_switch", "create_file", "delete_file", "backup", "ls", "read"],
+            "Search & Research": ["open_url", "open_current_html", "music"],
             "Execution": ["write_run"],
             "System": ["loop", "sequence", "pair", "clear_console"]
         }
@@ -80,6 +80,8 @@ class ToolRegistry:
                 clean_name = re.sub(r'\\b', '', clean_name)
                 # Hide technical-looking optional groups
                 clean_name = re.sub(r'\(\?:\s+<arg>\)\?', '', clean_name)
+                clean_name = clean_name.replace(r'(?: *(.*))?', '')
+                clean_name = clean_name.replace(r'.*', '')
                 
                 clean_name = clean_name.strip()
                 help_text += f"  \033[92m{clean_name:<18}\033[0m - {tool.description}\n"
@@ -88,7 +90,6 @@ class ToolRegistry:
             if cat == "System":
                 help_text += f"  \033[92m{'/help':<18}\033[0m - Show this help message.\n"
                 help_text += f"  \033[92m{'/exit':<18}\033[0m - Close models/server and exit.\n"
-                help_text += f"  \033[92m{'/quit':<18}\033[0m - Alias for /exit.\n"
         
         return help_text
 

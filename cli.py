@@ -757,7 +757,7 @@ def main():
             
 
 
-            if instruction.lower() in ['/exit', '/quit']:
+            if instruction.lower() == '/exit':
                 print("\n\033[90mClosing models, server, and LM Studio...\033[0m")
                 subprocess.run("lms unload --all", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 subprocess.run("lms server stop", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

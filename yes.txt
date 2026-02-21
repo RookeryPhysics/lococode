@@ -1,5 +1,0 @@
-Make the background red.
-
-Make the circle green.
-
-Put the circle in the center.
