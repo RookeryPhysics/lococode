@@ -273,18 +273,20 @@ def classify_intent(model_id, instruction, registry):
         f"{intent_list_str}\n\n"
         "Rules:\n"
         f"1. You MUST choose exactly one intent from this list: [{valid_intents_str}]\n"
-        "2. Determine 'args': the primary argument required by the chosen intent (e.g. filename, search query, mode), or null if none required.\n"
+        "2. Determine 'args': the primary argument required by the chosen intent (e.g. filename, search query, mode), or null if none required. For 'pair' or 'sequence', the arg is the full instruction.\n"
         "3. Determine 'tags_needed': a list of tool tag names the model should use to fulfill the instruction.\n"
-        "4. Provide 'reasoning': a brief one-sentence explanation for your choice.\n\n"
+        "4. Provide 'reasoning': a brief one-sentence explanation for your choice.\n"
+        "5. If the instruction contains EXACTLY TWO distinct steps (e.g. 'create a file then edit it'), you MUST choose the 'pair' intent.\n"
+        "6. If the instruction contains THREE OR MORE distinct steps, you MUST choose the 'sequence' intent.\n\n"
         f"Available tool tags for 'tags_needed': {tag_list}\n\n"
         "Respond with ONLY a JSON object. Examples:\n"
         '{"intent": "code_edit", "args": null, "tags_needed": [], "reasoning": "User wants to modify the current file."}\n'
         '{"intent": "create_file", "args": "app.py", "tags_needed": ["create_file", "edit_file"], "reasoning": "User wants a new app.py."}\n'
         '{"intent": "file_switch", "args": "main.py", "tags_needed": [], "reasoning": "User wants to start editing main.py instead."}\n'
-        '{"intent": "delete_file", "args": "filename.py", "tags_needed": [], "reasoning": "User wants to delete the file named filename.py."}\n'
-        '{"intent": "general_question", "args": null, "tags_needed": [], "reasoning": "User is asking a question that does not require taking action."}\n'
-        '{"intent": "loop", "args": "3 make this code more robust", "tags_needed": [], "reasoning": "User wants to loop 3 times over the code."}\n'
-        '{"intent": "model_switch", "args": "thinking", "tags_needed": [], "reasoning": "User wants to switch to the thinking model."}'
+        '{"intent": "pair", "args": "Create a new file called app.js and make it print hello world", "tags_needed": [], "reasoning": "Instruction involves exactly 2 distinct steps."}\n'
+        '{"intent": "sequence", "args": "Create app.py, add a route, and then run it", "tags_needed": [], "reasoning": "Instruction involves 3 or more distinct steps."}\n'
+        '{"intent": "model_switch", "args": "thinking", "tags_needed": [], "reasoning": "User wants to switch to the thinking model."}\n'
+        '{"intent": "ls", "args": null, "tags_needed": [], "reasoning": "User wants to list files in the directory."}'
     )
 
     messages = [
@@ -344,6 +346,9 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
         if tags_needed:
             print(f" | Tags: {', '.join(tags_needed)}", end="")
         print(f"\033[0m")
+        
+        plan_str = f"Plan: {intent}" + (f" | Tags: {', '.join(tags_needed)}" if tags_needed else "")
+        context.setdefault('session_history', []).append(plan_str)
 
         # ── Handle tool intents directly (Unified Planner) ──
         matched_tool = registry.find_tool_by_intent(intent)
@@ -363,14 +368,14 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
                     if cmd_match:
                         base_cmd = cmd_match.group(1)
                         fake_input = f"{base_cmd} {arg}" if arg else base_cmd
-                        fake_match = re.search(matched_tool.pattern, fake_input, re.IGNORECASE)
+                        fake_match = re.search(matched_tool.pattern, fake_input, re.IGNORECASE | re.DOTALL)
                         if fake_match:
                             matched_tool.execute(fake_match, context)
                             return True
                     print(f"\033[31mFailed to build command for {matched_tool.name}.\033[0m")
                     return False
             else:
-                fake_match = re.match(matched_tool.pattern, matched_tool.pattern, re.IGNORECASE)
+                fake_match = re.match(matched_tool.pattern, matched_tool.pattern, re.IGNORECASE | re.DOTALL)
                 matched_tool.execute(fake_match, context)
                 return True
 
@@ -414,6 +419,7 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
 
     if updated_content:
         updated_content = re.sub(r"<think>.*?</think>", "", updated_content, flags=re.DOTALL)
+        context.setdefault('session_history', []).append(f"Assistant:\n{updated_content.strip()}")
         updated_content = registry.process_model_output(updated_content, context)
 
         # Apply SEARCH/REPLACE blocks
@@ -745,6 +751,11 @@ def main():
                 instruction = input(f"\n\033[1;37m[{context['target_file']}] Edit Instruction: \033[0m")
                 
             if not instruction.strip(): continue
+            
+            if 'session_history' not in context:
+                context['session_history'] = []
+            context['session_history'].append(f"User: {instruction.strip()}")
+
             if instruction.lower() in ['/exit', '/quit']:
                 print("\n\033[90mClosing models, server, and LM Studio...\033[0m")
                 subprocess.run("lms unload --all", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -1,5 +1,6 @@
 import sys
 import subprocess
+import os
 from lococode.actions.base import BaseTool
 
 class WriteRunTool(BaseTool):
@@ -20,14 +21,27 @@ class WriteRunTool(BaseTool):
         apply_edit = context.get('apply_edit')
         registry = context.get('registry')
         model_id = context.get('model_id')
-        target_file = context.get('target_file')
 
         if not prompt:
             print("\033[31mError: Please provide a prompt.\033[0m")
             return True
 
-        if not target_file.endswith('.py'):
-             print("\033[33mWarning: Target file is not a .py file. Executing it as python might fail.\033[0m")
+        i = 1
+        while True:
+            new_file = f"script_{i}.py"
+            if not os.path.exists(new_file):
+                break
+            i += 1
+
+        with open(new_file, 'w', encoding='utf-8') as f:
+            f.write("")
+
+        print(f"\033[32mCreated and switched to {new_file}\033[0m")
+        context['target_file'] = new_file
+        target_file = new_file
+
+        if 'print_status' in context:
+            context['print_status'](context)
              
         print(f"\033[92mWriting script based on prompt: {prompt}\033[0m")
         success = apply_edit(

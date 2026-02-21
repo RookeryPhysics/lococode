@@ -22,7 +22,7 @@ class LoopTool(BaseTool):
 
         # Check if the first word is a number
         # Matches "5 some specs" or just "5" (though specs are required below)
-        count_match = re.match(r'^(\d+)\s+(.+)$', full_args)
+        count_match = re.match(r'^(\d+)\s+(.+)$', full_args, re.DOTALL)
         if count_match:
             try:
                 count = int(count_match.group(1))

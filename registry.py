@@ -41,10 +41,10 @@ class ToolRegistry:
         
         # Define categories and map tools to them
         categories = {
-            "File Operations": ["file_switch", "create_file", "delete_file"],
-            "Search & Research": ["open_url"],
+            "File Operations": ["file_switch", "create_file", "delete_file", "backup", "ls"],
+            "Search & Research": ["open_url", "open_current_html"],
             "Execution": ["write_run"],
-            "System": ["model", "loop", "sequence", "clear_console"]
+            "System": ["model", "loop", "sequence", "pair", "clear_console", "save_session"]
         }
         
         # Reverse mapping for quick lookup
@@ -109,7 +109,7 @@ class ToolRegistry:
                 pattern = tool.pattern
                 if pattern.startswith('/') or pattern.startswith('^/'):
                     # Match exact command or regex
-                    match = re.match(pattern, cleaned_input, re.IGNORECASE)
+                    match = re.match(pattern, cleaned_input, re.IGNORECASE | re.DOTALL)
                     if match:
                         return tool.execute(match, context)
         return False
