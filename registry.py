@@ -44,7 +44,7 @@ class ToolRegistry:
             "File Operations": ["file_switch", "create_file", "delete_file", "backup", "ls"],
             "Search & Research": ["open_url", "open_current_html"],
             "Execution": ["write_run"],
-            "System": ["model", "loop", "sequence", "pair", "clear_console", "save_session"]
+            "System": ["model", "loop", "sequence", "pair", "clear_console"]
         }
         
         # Reverse mapping for quick lookup

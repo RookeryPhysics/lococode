@@ -348,7 +348,7 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
         print(f"\033[0m")
         
         plan_str = f"Plan: {intent}" + (f" | Tags: {', '.join(tags_needed)}" if tags_needed else "")
-        context.setdefault('session_history', []).append(plan_str)
+
 
         # ── Handle tool intents directly (Unified Planner) ──
         matched_tool = registry.find_tool_by_intent(intent)
@@ -419,7 +419,7 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
 
     if updated_content:
         updated_content = re.sub(r"<think>.*?</think>", "", updated_content, flags=re.DOTALL)
-        context.setdefault('session_history', []).append(f"Assistant:\n{updated_content.strip()}")
+
         updated_content = registry.process_model_output(updated_content, context)
 
         # Apply SEARCH/REPLACE blocks
@@ -752,9 +752,7 @@ def main():
                 
             if not instruction.strip(): continue
             
-            if 'session_history' not in context:
-                context['session_history'] = []
-            context['session_history'].append(f"User: {instruction.strip()}")
+
 
             if instruction.lower() in ['/exit', '/quit']:
                 print("\n\033[90mClosing models, server, and LM Studio...\033[0m")
