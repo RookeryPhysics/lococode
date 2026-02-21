@@ -16,9 +16,8 @@ LOCOCODE is a new, lightweight command-line interface designed for rapid, AI-dri
 ## Prerequisites
 
 - **Python 3.x**
-- **LM Studio**: Must be running with the "Local Server" enabled (default: port 1234). The following models are required:
-  - `google/gemma-3n-e4b` (for fast mode)
-  - `qwen/qwen3-4b-thinking-2507` (for thinking mode)
+- **LM Studio**: Must be running with the "Local Server" enabled (default: port 1234). The following model is required:
+  - `google/gemma-3n-e4b`
 
 ## Usage
 

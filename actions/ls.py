@@ -7,7 +7,7 @@ class LsTool(BaseTool):
         super().__init__()
         self.name = "ls"
         self.description = "List all files in the same directory as cli.py. Usage: /ls"
-        self.pattern = r"^/ls\b"
+        self.pattern = r"^/ls(?: *(.*))?"
         self.is_slash = True
         self.intent = "ls"
 
@@ -21,7 +21,7 @@ class LsTool(BaseTool):
             # Run 'dir' command on Windows, 'ls' on others
             if os.name == 'nt':
                 # cmd /c dir lists files. /b for bare format if we wanted, but the user asked for "dir command"
-                result = subprocess.run(["cmd", "/c", "dir"], cwd=project_root, capture_output=True, text=True, shell=True)
+                result = subprocess.run("dir", cwd=project_root, capture_output=True, text=True, shell=True)
             else:
                 result = subprocess.run(["ls", "-F"], cwd=project_root, capture_output=True, text=True)
             

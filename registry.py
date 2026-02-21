@@ -44,7 +44,7 @@ class ToolRegistry:
             "File Operations": ["file_switch", "create_file", "delete_file", "backup", "ls"],
             "Search & Research": ["open_url", "open_current_html"],
             "Execution": ["write_run"],
-            "System": ["model", "loop", "sequence", "pair", "clear_console"]
+            "System": ["loop", "sequence", "pair", "clear_console"]
         }
         
         # Reverse mapping for quick lookup
@@ -80,9 +80,6 @@ class ToolRegistry:
                 clean_name = re.sub(r'\\b', '', clean_name)
                 # Hide technical-looking optional groups
                 clean_name = re.sub(r'\(\?:\s+<arg>\)\?', '', clean_name)
-                # Handle special case for /model which has a complex regex
-                if tool.name == "model":
-                    clean_name = "/model [mode]"
                 
                 clean_name = clean_name.strip()
                 help_text += f"  \033[92m{clean_name:<18}\033[0m - {tool.description}\n"

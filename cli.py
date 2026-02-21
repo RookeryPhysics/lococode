@@ -285,7 +285,6 @@ def classify_intent(model_id, instruction, registry):
         '{"intent": "file_switch", "args": "main.py", "tags_needed": [], "reasoning": "User wants to start editing main.py instead."}\n'
         '{"intent": "pair", "args": "Create a new file called app.js and make it print hello world", "tags_needed": [], "reasoning": "Instruction involves exactly 2 distinct steps."}\n'
         '{"intent": "sequence", "args": "Create app.py, add a route, and then run it", "tags_needed": [], "reasoning": "Instruction involves 3 or more distinct steps."}\n'
-        '{"intent": "model_switch", "args": "thinking", "tags_needed": [], "reasoning": "User wants to switch to the thinking model."}\n'
         '{"intent": "ls", "args": null, "tags_needed": [], "reasoning": "User wants to list files in the directory."}'
     )
 
@@ -698,7 +697,7 @@ def main():
         sys.exit(1)
 
     loaded_model_ids = [m.get('id') for m in models]
-    required_models = ["google/gemma-3n-e4b", "qwen/qwen3-4b-thinking-2507"]
+    required_models = ["google/gemma-3n-e4b"]
     
     for req_model in required_models:
         if not any(req_model in m_id for m_id in loaded_model_ids):
@@ -715,7 +714,7 @@ def main():
     registry = ToolRegistry()
     
     def print_status(ctx):
-        print(f"\n\033[1;34mEditing Mode: {ctx['target_file']} | Model: {ctx['model_id']}\033[0m")
+        print(f"\n\033[1;34mEditing Mode: {ctx['target_file']}\033[0m")
         slash_cmds = [t.pattern for t in ctx['registry'].tools if t.is_slash]
         # print(f"\033[90mCommands: {', '.join(slash_cmds)}\033[0m")
 
