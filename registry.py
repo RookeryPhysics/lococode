@@ -41,7 +41,7 @@ class ToolRegistry:
         
         # Define categories and map tools to them
         categories = {
-            "File Operations": ["file_switch", "create_file", "delete_file", "backup", "ls"],
+            "File Operations": ["file_switch", "create_file", "delete_file", "backup", "ls", "read"],
             "Search & Research": ["open_url", "open_current_html"],
             "Execution": ["write_run"],
             "System": ["loop", "sequence", "pair", "clear_console"]
