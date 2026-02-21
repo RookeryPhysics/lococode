@@ -422,7 +422,7 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
         updated_content = registry.process_model_output(updated_content, context)
 
         # Apply SEARCH/REPLACE blocks
-        blocks = re.findall(r"<<<< SEARCH\n(.*?)\n====\n(.*?)\n>>>> REPLACE", updated_content, re.DOTALL)
+        blocks = re.findall(r"<<<< SEARCH\n(.*?)\n====\n(.*?)(?:\n>>>> REPLACE|$)", updated_content, re.DOTALL | re.MULTILINE)
         
         if blocks:
             new_content = current_content
@@ -440,6 +440,10 @@ def apply_edit(target_file, instruction, model_id, registry, context, verbose=Fa
                 print(f"\033[32mApplied {applied_count} change(s) to {context['target_file']}.\033[0m")
                 return True
         else:
+            if "<<<< SEARCH" in updated_content:
+                print(f"\033[31mError: Model attempted to use SEARCH/REPLACE blocks but formatting was invalid.\033[0m")
+                return False
+                
             # Fallback if no blocks found but model output content (maybe for general questions or tiny files)
             cleaned = re.sub(r"```[a-z]*\n?", "", updated_content).replace("```", "").strip()
             if cleaned and intent == "code_edit":
