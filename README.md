@@ -54,6 +54,7 @@ The AI doesn't just write code; it can also perform actions by outputting specia
 - `<tool:create_file>path/to/file</tool:create_file>`: Allows the AI to spawn new files during a code edit.
 - `<tool:open_url>url</tool:open_url>`: Allows the AI to open documentation or previews for you.
 - `<tool:run_script>script.py</tool:run_script>`: Allows the AI to test its own code or run utilities.
+There are other tools, including a write_run tool that can create and execute a new action by writing and running a python script.
 
 ---
 *Note: Ensure LM Studio is running before launching LOCOCODE.*
